@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Бот жалоб УК - Помощник по обслуживанию дома</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Контейнер чата */
+        .chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Шапка чата */
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.3em;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #4caf50;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Область сообщений */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        /* Стили сообщений */
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.bot {
+            justify-content: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .bot .message-content {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Категории проблем (быстрые кнопки) */
+        .quick-categories {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .category-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 0 5px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .category-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Поле ввода */
+        .chat-input-container {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 0.95em;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Индикатор печати */
+        .typing-indicator {
+            display: none;
+            padding: 10px 20px;
+            background: white;
+            border-radius: 18px;
+            width: fit-content;
+            margin-bottom: 15px;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        /* Скроллбар */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>
+                <span class="status"></span>
+                🏠 Помощник УК "ДомКомфорт"
+            </h1>
+            <p>Опишите вашу проблему, и мы поможем её решить</p>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-content">
+                    👋 Здравствуйте! Я бот-помощник управляющей компании.<br><br>
+                    Я помогаю обрабатывать жалобы и заявки по обслуживанию дома.<br><br>
+                    <strong>Что вас беспокоит?</strong><br>
+                    • Проблемы с сантехникой<br>
+                    • Электрика<br>
+                    • Отопление<br>
+                    • Мусор и уборка<br>
+                    • Шум соседей<br>
+                    • Другое
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-categories">
+            <button class="category-btn" onclick="sendQuickMessage('🚰 Проблема с сантехникой (течь, засор)')">🚰 Сантехника</button>
+            <button class="category-btn" onclick="sendQuickMessage('⚡ Проблема с электричеством')">⚡ Электрика</button>
+            <button class="category-btn" onclick="sendQuickMessage('🔥 Проблема с отоплением')">🔥 Отопление</button>
+            <button class="category-btn" onclick="sendQuickMessage('🗑️ Проблема с мусором или уборкой')">🗑️ Уборка</button>
+            <button class="category-btn" onclick="sendQuickMessage('🔊 Жалоба на шум')">🔊 Шум</button>
+            <button class="category-btn" onclick="sendQuickMessage('📋 Другая проблема')">📋 Другое</button>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Опишите вашу проблему..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">📤 Отправить</button>
+        </div>
+    </div>
+
+    <script>
+        // Хранилище активной заявки
+        let currentComplaint = {
+            category: '',
+            description: '',
+            address: '',
+            userInfo: {}
+        };
+        
+        let waitingForAddress = false;
+        let waitingForName = false;
+        let waitingForPhone = false;
+        let complaintSubmitted = false;
+
+        // DOM элементы
+        const messagesContainer = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const typingIndicator = document.getElementById('typingIndicator');
+
+        // Функция добавления сообщения
+        function addMessage(text, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            messageDiv.innerHTML = `<div class="message-content">${text}</div>`;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // Показать индикатор печати
+        function showTyping() {
+            typingIndicator.style.display = 'block';
+            scrollToBottom();
+        }
+
+        // Скрыть индикатор печати
+        function hideTyping() {
+            typingIndicator.style.display = 'none';
+        }
+
+        // Скролл вниз
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Отправка быстрого сообщения
+        function sendQuickMessage(message) {
+            if (complaintSubmitted) {
+                addMessage(message, true);
+                addMessage("✅ Ваша жалоба уже зарегистрирована. Номер заявки: #" + currentComplaint.ticketNumber + ". Ожидайте звонка мастера в ближайшее время.", false);
+                return;
+            }
+            chatInput.value = message;
+            sendMessage();
+        }
+
+        // Обработка нажатия Enter
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Основная функция отправки сообщения
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Очищаем поле ввода
+            chatInput.value = '';
+            
+            // Добавляем сообщение пользователя
+            addMessage(message, true);
+
+            // Показываем индикатор печати
+            showTyping();
+
+            // Имитируем задержку ответа бота
+            setTimeout(() => {
+                hideTyping();
+                processUserMessage(message);
+            }, 1000);
+        }
+
+        // Обработка сообщений пользователя
+        function processUserMessage(message) {
+            const lowerMessage = message.toLowerCase();
+
+            // Если жалоба уже отправлена
+            if (complaintSubmitted) {
+                addMessage("✅ Ваша жалоба уже зарегистрирована. Номер заявки: #" + currentComplaint.ticketNumber + ". Ожидайте звонка мастера. Если у вас другая проблема, нажмите /new для новой заявки.", false);
+                return;
+            }
+
+            // Команда для новой заявки
+            if (lowerMessage === '/new') {
+                resetComplaint();
+                addMessage("🔄 Начинаем новую заявку. Опишите вашу проблему:", false);
+                return;
+            }
+
+            // Обработка адреса
+            if (waitingForAddress) {
+                currentComplaint.address = message;
+                waitingForAddress = false;
+                addMessage(`📍 Адрес принят: ${message}\n\nКак к вам обращаться? (ФИО)`, false);
+                waitingForName = true;
+                return;
+            }
+
+            // Обработка имени
+            if (waitingForName) {
+                currentComplaint.userInfo.name = message;
+                waitingForName = false;
+                addMessage(`👤 Приятно познакомиться, ${message}!\n\n📞 Укажите номер телефона для связи:`, false);
+                waitingForPhone = true;
+                return;
+            }
+
+            // Обработка телефона
+            if (waitingForPhone) {
+                currentComplaint.userInfo.phone = message;
+                waitingForPhone = false;
+                
+                // Генерируем номер заявки
+                currentComplaint.ticketNumber = Math.floor(Math.random() * 90000) + 10000;
+                
+                // Отправляем финальное подтверждение
+                const response = `✅ <strong>Заявка #${currentComplaint.ticketNumber} успешно создана!</strong><br><br>
+                <strong>📋 Детали заявки:</strong><br>
+                • Категория: ${currentComplaint.category}<br>
+                • Описание: ${currentComplaint.description}<br>
+                • Адрес: ${currentComplaint.address}<br>
+                • Контакт: ${currentComplaint.userInfo.name}, ${currentComplaint.userInfo.phone}<br><br>
+                ⏱️ Ориентировочное время выполнения: 24-48 часов<br>
+                👨‍🔧 Мастер свяжется с вами в ближайшее время<br><br>
+                <strong>🙏 Спасибо за обращение! Мы решим вашу проблему.</strong><br><br>
+                <em>Если у вас новая проблема, напишите /new</em>`;
+                
+                addMessage(response, false);
+                complaintSubmitted = true;
+                return;
+            }
+
+            // Определяем категорию жалобы
+            let category = '';
+            if (lowerMessage.includes('сантехник') || lowerMessage.includes('течь') || lowerMessage.includes('труб') || lowerMessage.includes('унитаз') || lowerMessage.includes('засор')) {
+                category = 'Сантехника';
+            } else if (lowerMessage.includes('электрик') || lowerMessage.includes('свет') || lowerMessage.includes('розетк') || lowerMessage.includes('проводк')) {
+                category = 'Электрика';
+            } else if (lowerMessage.includes('отоплен') || lowerMessage.includes('батаре') || lowerMessage.includes('холод') || lowerMessage.includes('тепло')) {
+                category = 'Отопление';
+            } else if (lowerMessage.includes('мусор') || lowerMessage.includes('уборк') || lowerMessage.includes('гряз') || lowerMessage.includes('подъезд')) {
+                category = 'Уборка и мусор';
+            } else if (lowerMessage.includes('шум') || lowerMessage.includes('громк') || lowerMessage.includes('сосед') || lowerMessage.includes('музык')) {
+                category = 'Шум соседей';
+            } else {
+                category = 'Другое';
+            }
+
+            currentComplaint.category = category;
+            currentComplaint.description = message;
+
+            // Ответ с уточнением адреса
+            const categoryResponse = getCategoryResponse(category);
+            addMessage(categoryResponse, false);
+            
+            // Запрашиваем адрес
+            setTimeout(() => {
+                addMessage("🏠 Укажите, пожалуйста, ваш адрес (улица, дом, квартира):", false);
+                waitingForAddress = true;
+            }, 500);
+        }
+
+        // Получение ответа в зависимости от категории
+        function getCategoryResponse(category) {
+            const responses = {
+                'Сантехника': '🔧 Понял, у вас проблема с сантехникой. Мы отправим сантехника.',
+                'Электрика': '⚡ Проблема с электричеством? Это серьёзно! Электрик выедет оперативно.',
+                'Отопление': '🔥 Проблема с отоплением? Это приоритетная заявка. Отправим мастера сегодня.',
+                'Уборка и мусор': '🗑️ Проблема с уборкой. Передадим вашу жалобу в клининговую службу.',
+                'Шум соседей': '🔊 Жалоба на шум. Участковый свяжется с вами для составления акта.',
+                'Другое': '📋 Принял вашу жалобу. Мы обязательно разберёмся с ситуацией.'
+            };
+            return responses[category] + '\n\nДля оформления заявки мне нужен ваш адрес.';
+        }
+
+        // Сброс заявки
+        function resetComplaint() {
+            currentComplaint = {
+                category: '',
+                description: '',
+                address: '',
+                userInfo: {}
+            };
+            waitingForAddress = false;
+            waitingForName = false;
+            waitingForPhone = false;
+            complaintSubmitted = false;
+        }
+
+        // Инициализация
+        scrollToBottom();
+    </script>
+</body>
+</html>
